@@ -244,7 +244,9 @@ public class ThreadConfiguration {
 						.getAssociatedStates();
 				for (ThreadState st : states) {
 					isInState = this.getExpectedStates().contains(st);
+					//System.out.println("-> Estado:"+st+" is?"+isInState+" statesSize:"+states.size());
 					if (!isInState) {
+					//	System.out.println("Returning false");
 						return false;
 					}
 				}
@@ -263,11 +265,15 @@ public class ThreadConfiguration {
 				if (this.getTimesToBeInState() == ThreadConfiguration.AT_LEAST_ONCE) {
 					return true;
 				} else {
-					return this.getTimesToBeInState() 
-					    == tManager
-					    .getNumberOfTimesInState(
-					    this.getThreadClassName(),
-						this.getExpectedStates());
+					/*System.out.println("Times toBeInSate:"
+							+ this.getTimesToBeInState()
+							+ " timesInState:"
+							+ tManager.getNumberOfTimesInState(
+									this.getThreadClassName(),
+									this.getExpectedStates()));*/
+					return this.getTimesToBeInState() == tManager
+							.getNumberOfTimesInState(this.getThreadClassName(),
+									this.getExpectedStates());
 				}
 			}
 			return isInState;

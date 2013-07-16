@@ -17,6 +17,7 @@
  */
 package br.edu.ufcg.threadcontrol.aspects;
 
+import java.util.concurrent.ExecutorService;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +116,13 @@ public aspect ThreadControlAspect {
 	 */
 	pointcut threadStartCalls(Thread t):call(public void start())&& target(t) 
 		&& excludedEntities();
-
+	
+	/**
+	 * Collects calls to *.submit() method from ExecutorService Interface.
+	 */
+	pointcut executorServiceSubmitions(Runnable r ): call(* ExecutorService+.submit(Runnable))
+	&& args(r) && excludedEntities();
+	
 	/**
 	 * Collects calls to Object.wait() method.
 	 */
@@ -133,7 +140,7 @@ public aspect ThreadControlAspect {
 	 */
 	pointcut sleepCalls(): call (public static void Thread.sleep(long)) 
 		&& excludedEntities();
-
+	
 	/**
 	 * Collects calls to Object.wait that use a timeout.
 	 */
@@ -204,10 +211,25 @@ public aspect ThreadControlAspect {
 	pointcut semaphoreDrainPermits(Semaphore sem):
 		call(public int Semaphore.drainPermits()) && target(sem);
 	
+	/**
+	 * Collects calls to JUNIT assertTrue method.
+	 */
+	pointcut RunningTest(): call (* *.assert*(..));
+	
 	/*
 	 * ADVICE
 	 */
+	
+	/**
+	 * Prints a message before running a JUNIT assert method.
+	 */
 
+	before(): RunningTest(){
+		if (threadWatcher.isSituationBeingExpected()){
+		System.out.println("@@@@@EXECUTING ASSERT METHOD: "+" >> "+thisJoinPoint);
+		}
+	}
+	
 	/**
 	 * Before a Thread.sleep call, ThreadWatcher is notified about a state
 	 * change: the current thread has started to sleep.
@@ -262,6 +284,20 @@ public aspect ThreadControlAspect {
 		verifyAndBlockThreadIfNecessary(thisJoinPoint);
 		threadWatcher.threadHadStateChange(Thread.currentThread(),
 				ThreadState.FINISHED, associatedObject);
+	}
+	
+	before (Runnable r): executorServiceSubmitions(r){
+		System.out.println("@@@@@ Submit method is running!");
+		verifyAndBlockThreadIfNecessary(thisJoinPoint);
+		threadWatcher.threadHadStateChangeForDifferentRunnable(Thread.currentThread(),ThreadState.STARTED, r); //Criar um novo método desse no lugar da thread t, ser um runnable
+		verifyAndBlockThreadIfNecessary(thisJoinPoint);
+	}
+	
+	after (Runnable r): executorServiceSubmitions(r){
+/*		verifyAndBlockThreadIfNecessary(thisJoinPoint);
+		threadWatcher.threadHadStateChange(Thread.currentThread(),
+				ThreadState.FINISHED, r);
+				*/
 	}
 
 	/**

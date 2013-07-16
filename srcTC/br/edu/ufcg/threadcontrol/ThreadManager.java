@@ -33,7 +33,7 @@ import java.util.Set;
  */
 public class ThreadManager {
 
-	private static final boolean DEBUG = false;
+	private static final boolean DEBUG = true;
 	
 	private HashMap<String, ThreadsAssociations> threadsAssociationsByName;
 
@@ -112,7 +112,34 @@ public class ThreadManager {
 		}
 
 	}
+	
+	public void changeToStateStartedForDifferentRunnable(Thread t,
+			 Runnable associatedObject) {
+		println("==>changing thread:"+t  + " / " + t.hashCode() + " /STARTED " );
+		println("==>changing runnable:"+associatedObject  + " / to state STARTED" );
 
+		ThreadAssociation newAssoc = new ThreadAssociation(null, ThreadState.STARTED,
+					associatedObject, false);
+		ThreadsAssociations assocsByName = this.threadsAssociationsByName
+				.get(newAssoc.getName());
+		if (assocsByName == null) {
+			assocsByName = new ThreadsAssociations();
+			assocsByName.addAssociation(newAssoc);
+			this.threadsAssociationsByName.put(newAssoc.getName(),
+					assocsByName);
+		} else {
+			assocsByName.addAssociation(newAssoc);
+//ADDED_abaixo
+		}
+
+		this.updateHistoryOfAssociatedClassNames(ThreadState.STARTED, newAssoc.getName());
+
+
+		
+		
+		
+	}
+	
 	/**
 	 * Informs that a thread, and all current thread associations related with
 	 * this thread have transitioned to a new state.
@@ -133,6 +160,7 @@ public class ThreadManager {
 			updateThreadState(t, state);
 		}
 	}
+	
 
 	/**
 	 * Gets the number of times a thread associated with a given class name has
@@ -244,13 +272,18 @@ public class ThreadManager {
 			List<ThreadAssociation> associations = 
 				this.threadsAssociationByThread
 				.get(t).getThreadAssociationsList();
-			for (ThreadAssociation assoc : associations) {
+			for (ThreadAssociation assoc : associations) {//TODO: REVER CÓDIGO
 				if (!assoc.getState().equals(state)
-					&& !(assoc.getState().equals(ThreadState.FINISHED) 
-					&& !assoc.getObject().equals(assoc.getThread()))) {
+					&& !(assoc.getState().equals(ThreadState.FINISHED) //não é o caso em que estado é finished e a thread é diferente do associated object
+					&& !assoc.getObject().equals(assoc.getThread()))
+					//&& !(assoc.getState().equals(ThreadState.STARTED) //TODO:REVER:não é o caso em que estado é started e a thread é diferente do associated object
+					//&& !assoc.getObject().equals(assoc.getThread()))
+						) {
+					System.out.println("**vai atualizar estado anterior:"+assoc.getState()+"//"+assoc.getState().equals(ThreadState.FINISHED)+"//ASSOC OBJ:"+assoc.getName()+"//thread:"+t+"hash:"+t.hashCode());
 					assoc.setState(state);
-					this.updateHistoryOfAssociatedClassNames(
+					this.updateHistoryOfAssociatedClassNames(//TODO: rever
 						state, assoc.getName());
+					System.out.println("**foi atualizado");
 				}
 			}
 			ThreadAssociation newAssoc;
@@ -258,25 +291,43 @@ public class ThreadManager {
 			if (!previousState.equals(ThreadState.RUNNING)) {
 				this.threadsByState.changeThreadState(t, previousState,
 						ThreadState.RUNNING);
+				System.out.println("*****cheguei aqui1"+associatedObject+"***"+t+"hash:"+t.hashCode()+"** previous state da thread:"+previousState);
+				
 				newAssoc = new ThreadAssociation(t, ThreadState.RUNNING,
-						associatedObject, true);
+						associatedObject, true);//TODO:ver de deve ser false com threadpool
 			} else {
+				System.out.println("*****cheguei aqui2"+associatedObject+"***"+t);
 				newAssoc = new ThreadAssociation(t, ThreadState.RUNNING,
 						associatedObject);
 			}
 
-			this.threadsAssociationByThread.get(t).addAssociation(newAssoc);
-			this.updateHistoryOfAssociatedClassNames(state, newAssoc.getName());
-			ThreadsAssociations assocsByName = this.threadsAssociationsByName
-					.get(newAssoc.getName());
+			ThreadsAssociations assocsByName = this.threadsAssociationsByName.get(newAssoc.getName());
 			if (assocsByName == null) {
 				assocsByName = new ThreadsAssociations();
 				assocsByName.addAssociation(newAssoc);
 				this.threadsAssociationsByName.put(newAssoc.getName(),
 						assocsByName);
 			} else {
-				assocsByName.addAssociation(newAssoc);
+				println("+++++passei aqui3");
+				//TODO: ver como atualizar os ThreadsAssociations tirando o null
+				// que foi colocado no momento do start
+				List<ThreadAssociation> list = assocsByName.getThreadAssociationsList();
+				boolean updated = false;
+				for (ThreadAssociation taElem : list) {
+					if (taElem.getThread() == null && taElem.getObject().equals(associatedObject)) {
+						newAssoc = taElem;
+						newAssoc.setState(ThreadState.RUNNING);
+						newAssoc.setThread(t);
+						updated = true;
+					}
+				}
+				if (!updated){
+					assocsByName.addAssociation(newAssoc);
+				}
 			}
+			
+			this.threadsAssociationByThread.get(t).addAssociation(newAssoc);
+			this.updateHistoryOfAssociatedClassNames(state, newAssoc.getName());
 
 		} else {
 			throw new RuntimeException(
@@ -316,7 +367,7 @@ public class ThreadManager {
 		} else {
 			associationsByName.addAssociation(assoc);
 		}
-		ThreadsAssociations threadsAssociationsForThread = new ThreadsAssociations();
+		ThreadsAssociations threadsAssociationsForThread = new ThreadsAssociations(); //Criando uma nova lista toda a toda vez.
 		threadsAssociationsForThread.addAssociation(assoc);
 		this.threadsAssociationByThread.put(t, threadsAssociationsForThread);
 		this.threadsByState.addNewThreadState(t, initialState);
@@ -365,6 +416,8 @@ public class ThreadManager {
 	protected ThreadsAssociations getAssociationsForName(String className) {
 		return this.threadsAssociationsByName.get(className);
 	}
+
+
 
 }
 
@@ -438,7 +491,7 @@ class ThreadsAssociations {
 class ThreadAssociation {
 	private Thread thread;
 	private ThreadState associatedThreadState;
-	private Object associatedObject;
+	private Object associatedObject; //runnable
 	private boolean definesGlobalEndOfThread;
 
 	/**
@@ -453,6 +506,11 @@ class ThreadAssociation {
 		this.thread = t;
 		this.associatedThreadState = state;
 		this.associatedObject = associatedObject;
+	}
+
+	public void setThread(Thread t) {
+		this.thread = t;
+		
 	}
 
 	/**

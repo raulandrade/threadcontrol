@@ -70,7 +70,7 @@ public class ThreadWatcher {
 	/**
 	 * A debug variable.
 	 */
-	private static final boolean DEBUG = false;
+	private static final boolean DEBUG = true;
 
 	/**
 	 * The current test thread
@@ -91,13 +91,13 @@ public class ThreadWatcher {
 	 * prepare call.
 	 */
 	public synchronized void waitUntilSystemConfiguration() {
-		this.isSituationBeingExpected = true;
+		this.isSituationBeingExpected = true; //TODO ew:Parece estranho, já não foi configurada como true no método abaixo?
 		while (!this.stateReached) {
 			if (verifyIfConfigurationWasReached()) {
 				return;
 			} else {
 				try {
-					this.wait();
+					this.wait(); //Quem espera aqui? O test? O threadWatcher?
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -169,7 +169,7 @@ public class ThreadWatcher {
 				while (shouldBlockCurrentThread) {
 					try {
 						this.println("Will block..." + Thread.currentThread().getClass().getCanonicalName()+ "==>"+Thread.currentThread() );
-						controllerLock.wait();
+						controllerLock.wait(); //??????
 						synchronized (this) {
 							shouldBlockCurrentThread = this.isStateReached()
 									&& isSituationBeingExpected();
@@ -384,6 +384,30 @@ public class ThreadWatcher {
 			ThreadState toState, Object associatedObject) {
 		if (isSituationBeingExpected()) {
 			this.threadManager.changeToState(t, toState, associatedObject);
+			this.notifyThreadsStateChange();
+		}
+	}
+	
+	/**
+	 * Indicates that a state change has happened to a Thread, regarding a given
+	 * Runnable object in a ThreadPool.
+	 * 
+	 * @param t
+	 *            The current thread.
+	 * @param toState
+	 *            The new state for this Thread considering the Runnable object.
+	 * @param associatedObject
+	 *            A Runnable object whose class name identifies its relation
+	 *            with the current thread.
+	 */
+	
+	public synchronized void threadHadStateChangeForDifferentRunnable(Thread t,
+			ThreadState toState, Runnable task) {
+		if (toState!= ThreadState.STARTED){
+			throw new RuntimeException("Unexpected state"+toState);
+		}
+		if (isSituationBeingExpected()) {
+			this.threadManager.changeToStateStartedForDifferentRunnable(t,  task);
 			this.notifyThreadsStateChange();
 		}
 	}
