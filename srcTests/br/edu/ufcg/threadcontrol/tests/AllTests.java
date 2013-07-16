@@ -20,6 +20,8 @@ public class AllTests {
 		suite.addTestSuite(SemaphoreForTwoThreadsTest.class);
 		suite.addTestSuite(SemaphoreTwoAcquiresAndOnePermitTest.class);
 		suite.addTestSuite(SemaphoreTest.class);
+		suite.addTestSuite(MonitoredQueueTest.class);
+		suite.addTestSuite(MonitoredSemaphoreTest.class);
 		//$JUnit-END$
 		return suite;
 	}
